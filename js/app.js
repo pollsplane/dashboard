@@ -784,14 +784,11 @@ async function updateCreatorStatus() {
         showMessage('Creator ID is required to update status.', 'error');
         return;
     }
-    
-    const url = `${API_BASE_URL}/api/admin/creators/${creatorId}/status`;
-    const body = {
-        unlisted: creatorUnlistedCheckbox.checked,
-        removed: creatorRemovedCheckbox.checked
-    };
-    
-    await makeApiRequest(url, 'PUT', body);
+    const unlistedStatus = creatorUnlistedCheckbox.checked;
+    const removedStatus = creatorRemovedCheckbox.checked;
+    const url = `${API_BASE_URL}/api/admin/creators/${creatorId}`;
+    await makeApiRequest(url, 'PUT', { unlisted: unlistedStatus, removed: removedStatus });
+    fetchCreatorDetails(); // Refresh details after update
 }
 
 async function addCreatorChannel() {
