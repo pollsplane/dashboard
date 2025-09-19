@@ -55,6 +55,13 @@
             <h1 class="text-2xl font-bold text-gray-900 mb-0">Pollsplane Admin Interface</h1>
             <div class="header-controls">
                 <div class="theme-toggle">
+                    <span>Localhost</span>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="localhostToggle">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+                <div class="theme-toggle">
                     <span>Dark Mode</span>
                     <label class="toggle-switch">
                         <input type="checkbox" id="darkModeToggle">
@@ -106,16 +113,37 @@
                 <h2 class="section-header text-purple-700">Update Associations</h2>
                 <div class="input-group">
                     <label for="youtubeId" class="text-gray-700">YouTube ID:</label>
-                    <input type="text" id="youtubeId" class="w-full" placeholder="YouTube Video ID (or leave blank to clear)">
+                    <input type="text" id="youtubeId" class="w-full" placeholder="YouTube Video ID">
+                </div>
+                <div class="input-group">
+                    <label for="youtubeIdSeconds" class="text-gray-700">Start (s):</label>
+                    <input type="number" id="youtubeIdSeconds" class="w-full" placeholder="Start seconds">
                 </div>
                 <div class="input-group">
                     <label for="floatplaneId" class="text-gray-700">Floatplane ID:</label>
-                    <input type="text" id="floatplaneId" class="w-full" placeholder="Floatplane Post ID (or leave blank to clear)">
+                    <input type="text" id="floatplaneId" class="w-full" placeholder="Floatplane Post ID">
+                </div>
+                <div class="input-group">
+                    <label for="floatplaneIdSeconds" class="text-gray-700">Start (s):</label>
+                    <input type="number" id="floatplaneIdSeconds" class="w-full" placeholder="Start seconds">
                 </div>
                 <button id="updateAssociationsBtn" class="btn btn-primary w-full">Update Associations</button>
             </div>
         </div>
 
+        <!-- Manual Tally Entry -->
+        <div class="mb-8 p-6 bg-cyan-50 rounded-lg border border-cyan-200">
+            <h2 class="section-header text-cyan-700">Manual Tally Entry</h2>
+            <div class="input-group">
+                <label for="tallyCounts" class="text-gray-700">Tally Counts:</label>
+                <input type="text" id="tallyCounts" class="w-full" placeholder="e.g., 100, 250, 50">
+            </div>
+            <div class="input-group">
+                <label for="tallyTimestamp" class="text-gray-700">Timestamp:</label>
+                <input type="text" id="tallyTimestamp" class="w-full" placeholder="ISO 8601 (e.g., 2023-01-01T12:00:00Z)">
+            </div>
+            <button id="addTallyBtn" class="btn btn-primary w-full">Add Tally</button>
+        </div>
 
 
         <!-- Update Untracked Status -->

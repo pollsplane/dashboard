@@ -747,6 +747,8 @@ body.dark-mode {
 .dark-mode .bg-purple-50 { background-color: #382c44; border-color: #5a4b69; }
 .dark-mode .bg-red-50 { background-color: #3a2222; border-color: #5d3535; }
 .dark-mode .bg-yellow-50 { background-color: #4a3d24; border-color: #7a633a; }
+.dark-mode .bg-cyan-50 { background-color: #223c4a; border-color: #315a6d; }
+
 
 /* Select2 Dropdown Styling */
 .select2-container--bootstrap-5 {
@@ -1136,5 +1138,6 @@ select.select2-hidden-accessible {
 .dark-mode .text-purple-700 { color: #c084fc; }
 .dark-mode .text-red-700 { color: #fca5a5; }
 .dark-mode .text-yellow-700 { color: #fde68a; }
+.dark-mode .text-cyan-700 { color: #6ee7b7; }
 .dark-mode .text-blue-800 { color: #93c5fd; }
 .dark-mode .text-sm.text-gray-500 { color: #9ca3af; }

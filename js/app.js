@@ -1,6 +1,3 @@
-// Constants
-const API_BASE_URL = "https://api.pollsplane.com";
-
 // DOM Elements
 const apiKeyInput = document.getElementById('apiKey');
 const pollIdInput = document.getElementById('pollId');
@@ -14,6 +11,16 @@ const loadingSpinner = document.getElementById('loadingSpinner');
 const messageBox = document.getElementById('messageBox');
 const copyResponseBtn = document.getElementById('copyResponseBtn');
 const darkModeToggle = document.getElementById('darkModeToggle');
+const localhostToggle = document.getElementById('localhostToggle');
+
+// Association Seconds Inputs
+const youtubeIdSecondsInput = document.getElementById('youtubeIdSeconds');
+const floatplaneIdSecondsInput = document.getElementById('floatplaneIdSeconds');
+
+// Manual Tally Inputs
+const tallyCountsInput = document.getElementById('tallyCounts');
+const tallyTimestampInput = document.getElementById('tallyTimestamp');
+
 
 // New Poll Elements
 const newPollTitleInput = document.getElementById('newPollTitle');
@@ -49,6 +56,12 @@ const updateChannelDescriptionInput = document.getElementById('updateChannelDesc
 const updateChannelThumbnailInput = document.getElementById('updateChannelThumbnail');
 const removeChannelTitleInput = document.getElementById('removeChannelTitle');
 
+// API URL Helper
+function getApiBaseUrl() {
+    const useLocalhost = localStorage.getItem('useLocalhost') === 'true';
+    return useLocalhost ? 'http://localhost:5000' : 'https://api.pollsplane.com';
+}
+
 // Initialize the application
 document.addEventListener('DOMContentLoaded', () => {
     // Set up event listeners
@@ -68,6 +81,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (savedApiKey) {
         apiKeyInput.value = savedApiKey;
     }
+
+    // Set localhost toggle state
+    const useLocalhost = localStorage.getItem('useLocalhost') === 'true';
+    if (localhostToggle) {
+        localhostToggle.checked = useLocalhost;
+    }
 });
 
 // Set up all event listeners
@@ -76,6 +95,14 @@ function setupEventListeners() {
     darkModeToggle.addEventListener('change', () => {
         setDarkMode(darkModeToggle.checked);
     });
+
+    // Localhost toggle
+    if(localhostToggle) {
+        localhostToggle.addEventListener('change', () => {
+            localStorage.setItem('useLocalhost', localhostToggle.checked);
+            showMessage(`API endpoint set to: ${getApiBaseUrl()}`, 'info');
+        });
+    }
     
     // Copy response button
     copyResponseBtn.addEventListener('click', () => {
@@ -114,6 +141,7 @@ function setupEventListeners() {
     document.getElementById('updateUntrackedBtn').addEventListener('click', updateUntrackedStatus);
     document.getElementById('createPollBtn').addEventListener('click', createNewPoll);
     document.getElementById('deletePollBtn').addEventListener('click', deletePoll);
+    document.getElementById('addTallyBtn').addEventListener('click', addPollTally);
     
     // API Key management
     document.getElementById('listApiKeysBtn').addEventListener('click', listApiKeys);
@@ -379,7 +407,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function fetchAndPopulatePolls() {
-    const url = `${API_BASE_URL}/api/polls?per_page=100`;
+    const url = `${getApiBaseUrl()}/api/polls?per_page=100`;
     const data = await makeApiRequest(url, 'GET');
     if (data && data.status === 'success') {
         // Clear existing options
@@ -409,13 +437,15 @@ async function fetchPollDetails() {
         showPollDetails(false);
         return;
     }
-    const url = `${API_BASE_URL}/api/poll/${pollId}`;
+    const url = `${getApiBaseUrl()}/api/poll/${pollId}`;
     const data = await makeApiRequest(url, 'GET');
     if (data && data.status === 'success') {
         const poll = data.data;
         pollNoteInput.value = poll.pollplane_note || '';
-        youtubeIdInput.value = poll.associated_posts?.youtube || '';
-        floatplaneIdInput.value = poll.associated_posts?.floatplane || '';
+        youtubeIdInput.value = poll.associated_posts?.youtube?.id || '';
+        youtubeIdSecondsInput.value = poll.associated_posts?.youtube?.start_seconds || '';
+        floatplaneIdInput.value = poll.associated_posts?.floatplane?.id || '';
+        floatplaneIdSecondsInput.value = poll.associated_posts?.floatplane?.start_seconds || '';
         untrackedCheckbox.checked = poll.untracked || false;
         showPollDetails(true);
     }
@@ -438,7 +468,7 @@ async function updatePollNote() {
         return;
     }
     const note = pollNoteInput.value;
-    const url = `${API_BASE_URL}/api/admin/polls/${pollId}/notes`;
+    const url = `${getApiBaseUrl()}/api/admin/polls/${pollId}/notes`;
     await makeApiRequest(url, 'PUT', { pollplane_note: note });
 }
 
@@ -451,8 +481,23 @@ async function updatePollAssociations() {
     }
     const youtubeId = youtubeIdInput.value.trim() || null;
     const floatplaneId = floatplaneIdInput.value.trim() || null;
-    const url = `${API_BASE_URL}/api/admin/polls/${pollId}/associations`;
-    await makeApiRequest(url, 'PUT', { youtube_id: youtubeId, floatplane_id: floatplaneId });
+    const youtubeStartSeconds = youtubeIdSecondsInput.value ? parseInt(youtubeIdSecondsInput.value, 10) : null;
+    const floatplaneStartSeconds = floatplaneIdSecondsInput.value ? parseInt(floatplaneIdSecondsInput.value, 10) : null;
+
+    if (isNaN(youtubeStartSeconds) || isNaN(floatplaneStartSeconds)) {
+        showMessage('Start seconds must be a valid number if provided.', 'error');
+        return;
+    }
+
+    const url = `${getApiBaseUrl()}/api/admin/polls/${pollId}/associations`;
+    const body = { 
+        youtube_id: youtubeId, 
+        floatplane_id: floatplaneId,
+        youtube_start_seconds: youtubeStartSeconds,
+        floatplane_start_seconds: floatplaneStartSeconds
+    };
+
+    await makeApiRequest(url, 'PUT', body);
 }
 
 async function updateUntrackedStatus() {
@@ -463,8 +508,56 @@ async function updateUntrackedStatus() {
         return;
     }
     const untrackedStatus = untrackedCheckbox.checked;
-    const url = `${API_BASE_URL}/api/admin/polls/${pollId}/untracked`;
+    const url = `${getApiBaseUrl()}/api/admin/polls/${pollId}/untracked`;
     await makeApiRequest(url, 'PUT', { untracked: untrackedStatus });
+}
+
+async function addPollTally() {
+    const pollId = pollIdInput.value.trim();
+    if (!pollId) {
+        showMessage('Poll ID is required to add a tally.', 'error');
+        return;
+    }
+
+    const countsText = tallyCountsInput.value.trim();
+    const timestamp = tallyTimestampInput.value.trim();
+
+    if (!countsText || !timestamp) {
+        showMessage('Tally counts and timestamp are required.', 'error');
+        return;
+    }
+
+    let counts;
+    try {
+        counts = countsText.split(',').map(c => {
+            const num = parseInt(c.trim(), 10);
+            if (isNaN(num)) {
+                throw new Error('Invalid number in counts.');
+            }
+            return num;
+        });
+    } catch (error) {
+        showMessage('Tally counts must be a comma-separated list of numbers.', 'error');
+        return;
+    }
+
+    // Basic ISO 8601 validation
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})$/.test(timestamp)) {
+        showMessage('Timestamp must be in valid ISO 8601 format.', 'error');
+        return;
+    }
+
+    const url = `${getApiBaseUrl()}/api/admin/polls/${pollId}/tally`;
+    const body = {
+        counts,
+        timestamp
+    };
+
+    await makeApiRequest(url, 'POST', body);
+    
+    // Clear inputs after successful submission
+    tallyCountsInput.value = '';
+    tallyTimestampInput.value = '';
 }
 
 async function createNewPoll() {
@@ -480,7 +573,7 @@ async function createNewPoll() {
         return;
     }
 
-    const url = `${API_BASE_URL}/api/admin/polls`;
+    const url = `${getApiBaseUrl()}/api/admin/polls`;
     const body = {
         title: title,
         creator_id: creatorId,
@@ -501,7 +594,7 @@ async function deletePoll() {
     if (!confirm(`Are you sure you want to delete poll ${pollId}? This action cannot be undone.`)) {
         return;
     }
-    const url = `${API_BASE_URL}/api/admin/polls/${pollId}`;
+    const url = `${getApiBaseUrl()}/api/admin/polls/${pollId}`;
     await makeApiRequest(url, 'DELETE');
     pollIdInput.value = ''; // Clear ID after deletion
     pollSelector.value = ''; // Clear selector
@@ -510,27 +603,14 @@ async function deletePoll() {
 
 // API Key Management Functions
 async function listApiKeys() {
-    const url = `${API_BASE_URL}/api/admin/api-keys`;
-    const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': localStorage.getItem('apiKey') || ''
-        }
-    });
-    
-    if (!response.ok) {
-        throw new Error('Failed to fetch API keys');
-    }
-    
-    const data = await response.json();
-    return data.data || [];
+    const url = `${getApiBaseUrl()}/api/admin/api-keys`;
+    await makeApiRequest(url, 'GET');
 }
 
 // Login Functions
 async function validateApiKey(apiKey) {
     try {
-        const response = await fetch(`${API_BASE_URL}/api/admin/api-keys`, {
+        const response = await fetch(`${getApiBaseUrl()}/api/admin/api-keys`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -680,7 +760,7 @@ async function createApiKey() {
         return;
     }
 
-    const url = `${API_BASE_URL}/api/admin/api-keys`;
+    const url = `${getApiBaseUrl()}/api/admin/api-keys`;
     await makeApiRequest(url, 'POST', { permissions: permissions, rate_limit: rateLimit });
 }
 
@@ -693,7 +773,7 @@ async function deleteApiKey() {
     if (!confirm(`Are you sure you want to delete API Key ${apiKeyToDelete}? This action cannot be undone.`)) {
         return;
     }
-    const url = `${API_BASE_URL}/api/admin/api-keys/${apiKeyToDelete}`;
+    const url = `${getApiBaseUrl()}/api/admin/api-keys/${apiKeyToDelete}`;
     await makeApiRequest(url, 'DELETE');
     deleteApiKeyInput.value = ''; // Clear input
 }
@@ -719,13 +799,13 @@ async function updateApiKey() {
         return;
     }
 
-    const url = `${API_BASE_URL}/api/admin/api-keys/${apiKeyToUpdate}`;
+    const url = `${getApiBaseUrl()}/api/admin/api-keys/${apiKeyToUpdate}`;
     await makeApiRequest(url, 'PUT', { permissions: permissions, rate_limit: rateLimit });
 }
 
 // Creator Management Functions
 async function fetchAndPopulateCreators() {
-    const url = `${API_BASE_URL}/api/creators`;
+    const url = `${getApiBaseUrl()}/api/creators`;
     const data = await makeApiRequest(url, 'GET');
     if (data && data.status === 'success') {
         creatorSelector.innerHTML = '<option value="">-- Select a Creator --</option>';
@@ -745,7 +825,7 @@ async function fetchCreatorDetails() {
         showMessage('Creator ID is required to fetch details.', 'error');
         return;
     }
-    const url = `${API_BASE_URL}/api/admin/creators/${creatorId}`;
+    const url = `${getApiBaseUrl()}/api/admin/creators/${creatorId}`;
     const data = await makeApiRequest(url, 'GET');
     if (data && data.status === 'success') {
         const creator = data.data;
@@ -786,7 +866,7 @@ async function updateCreatorStatus() {
     }
     const unlistedStatus = creatorUnlistedCheckbox.checked;
     const removedStatus = creatorRemovedCheckbox.checked;
-    const url = `${API_BASE_URL}/api/admin/creators/${creatorId}`;
+    const url = `${getApiBaseUrl()}/api/admin/creators/${creatorId}`;
     await makeApiRequest(url, 'PUT', { unlisted: unlistedStatus, removed: removedStatus });
     fetchCreatorDetails(); // Refresh details after update
 }
@@ -802,7 +882,7 @@ async function addCreatorChannel() {
         return;
     }
     
-    const url = `${API_BASE_URL}/api/admin/creators/${creatorId}/channels`;
+    const url = `${getApiBaseUrl()}/api/admin/creators/${creatorId}/channels`;
     const body = { title };
     
     if (description) body.description = description;
@@ -831,7 +911,7 @@ async function updateCreatorChannel() {
         return;
     }
     
-    const url = `${API_BASE_URL}/api/admin/creators/${creatorId}/channels/${encodeURIComponent(oldTitle)}`;
+    const url = `${getApiBaseUrl()}/api/admin/creators/${creatorId}/channels/${encodeURIComponent(oldTitle)}`;
     const body = { new_title: newTitle };
     
     if (description) body.description = description;
@@ -862,7 +942,7 @@ async function removeCreatorChannel() {
         return;
     }
     
-    const url = `${API_BASE_URL}/api/admin/creators/${creatorId}/channels/${encodeURIComponent(title)}`;
+    const url = `${getApiBaseUrl()}/api/admin/creators/${creatorId}/channels/${encodeURIComponent(title)}`;
     await makeApiRequest(url, 'DELETE');
     
     // Refresh creator details to show the updated channels
