@@ -149,6 +149,12 @@ function setupEventListeners() {
     document.getElementById('deleteApiKeyBtn').addEventListener('click', deleteApiKey);
     document.getElementById('updateApiKeyBtn').addEventListener('click', updateApiKey);
     
+    // Database backup
+    const downloadBackupBtn = document.getElementById('downloadBackupBtn');
+    if (downloadBackupBtn) {
+        downloadBackupBtn.addEventListener('click', downloadBackup);
+    }
+
     // Creator management
     document.getElementById('loadCreatorsBtn').addEventListener('click', fetchAndPopulateCreators);
     document.getElementById('fetchCreatorDetailsBtn').addEventListener('click', fetchCreatorDetails);
@@ -950,4 +956,108 @@ async function removeCreatorChannel() {
     
     // Clear the form
     removeChannelTitleInput.value = '';
+}
+
+function filenameFromContentDisposition(header) {
+    if (!header) {
+        return null;
+    }
+    const utfMatch = /filename\*=UTF-8''([^;]+)/i.exec(header);
+    if (utfMatch) {
+        try {
+            return decodeURIComponent(utfMatch[1].trim());
+        } catch (e) {
+            return utfMatch[1].trim();
+        }
+    }
+    const quotedMatch = /filename="([^"]+)"/i.exec(header);
+    if (quotedMatch) {
+        return quotedMatch[1];
+    }
+    const plainMatch = /filename=([^;]+)/i.exec(header);
+    return plainMatch ? plainMatch[1].trim() : null;
+}
+
+async function downloadBackup() {
+    const downloadBackupBtn = document.getElementById('downloadBackupBtn');
+    const apiKey = localStorage.getItem('apiKey');
+    if (!apiKey) {
+        document.getElementById('apiKeyScreen')?.classList.remove('hidden');
+        document.getElementById('mainContent')?.classList.add('hidden');
+        showMessage('Please log in with a valid API key', 'error');
+        return;
+    }
+
+    const originalLabel = downloadBackupBtn ? downloadBackupBtn.textContent : '';
+    if (downloadBackupBtn) {
+        downloadBackupBtn.disabled = true;
+        downloadBackupBtn.textContent = 'Creating backup...';
+    }
+
+    try {
+        const response = await fetch(`${getApiBaseUrl()}/api/admin/backup`, {
+            method: 'GET',
+            headers: {
+                'x-api-key': apiKey
+            },
+            mode: 'cors'
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            localStorage.removeItem('apiKey');
+            document.getElementById('apiKeyScreen')?.classList.remove('hidden');
+            document.getElementById('mainContent')?.classList.add('hidden');
+            showMessage('Your session has expired. Please log in again.', 'error');
+            return;
+        }
+
+        if (!response.ok) {
+            let message = `Backup failed (${response.status})`;
+            try {
+                const data = await response.json();
+                message = data.message || message;
+            } catch (e) {
+                // Response was not JSON
+            }
+            throw new Error(message);
+        }
+
+        const blob = await response.blob();
+        if (!blob || blob.size === 0) {
+            throw new Error('Backup download was empty');
+        }
+
+        const filename = filenameFromContentDisposition(response.headers.get('Content-Disposition'))
+            || `pollsplane-${new Date().toISOString().replace(/[:.]/g, '-')}.archive.gz`;
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(objectUrl);
+
+        showMessage('Backup download started.', 'success');
+        if (apiResponseDiv) {
+            apiResponseDiv.textContent = JSON.stringify({
+                status: 'success',
+                message: 'Database backup downloaded',
+                filename
+            }, null, 2);
+            apiResponseDiv.className = 'response-area success';
+        }
+    } catch (error) {
+        console.error('Backup download failed:', error);
+        showMessage(`Error: ${error.message}`, 'error');
+        if (apiResponseDiv) {
+            apiResponseDiv.textContent = `Error: ${error.message}`;
+            apiResponseDiv.className = 'response-area error';
+        }
+    } finally {
+        if (downloadBackupBtn) {
+            downloadBackupBtn.disabled = false;
+            downloadBackupBtn.textContent = originalLabel || 'Download Backup';
+        }
+    }
 }

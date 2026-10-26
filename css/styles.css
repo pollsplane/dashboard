@@ -112,6 +112,12 @@ body {
     transform: translateY(-1px);
 }
 
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .response-area {
     background-color: #e2e8f0; /* Light mode response area */
     border-radius: 8px;
